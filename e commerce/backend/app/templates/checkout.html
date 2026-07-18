@@ -1,0 +1,282 @@
+{% extends 'base.html' %}
+
+{% block title %}Checkout - AuraShop{% endblock %}
+
+{% block content %}
+<h1 class="text-gradient" style="margin-bottom: 2rem;">Order Checkout</h1>
+
+<div class="cart-layout">
+    <!-- Left: Delivery & Payment Details -->
+    <div class="glass-panel" style="border-radius: var(--radius-lg); padding: 2.5rem;">
+        <h3 style="margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+            Shipping Information
+        </h3>
+        
+        <form id="checkout-form">
+            <div class="form-group">
+                <label for="customer_name">Customer Name *</label>
+                <input type="text" id="customer_name" required class="form-control" placeholder="Enter recipient full name">
+            </div>
+            
+            <div class="form-group">
+                <label for="mobile_number">Mobile Number * (10-12 digits)</label>
+                <input type="tel" id="mobile_number" required class="form-control" placeholder="9876543210">
+            </div>
+            
+            <div class="form-group">
+                <label for="delivery_address">Delivery Address *</label>
+                <input type="text" id="delivery_address" required class="form-control" placeholder="House/Apartment, Street Address">
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+                <div class="form-group">
+                    <label for="city">City *</label>
+                    <input type="text" id="city" required class="form-control" placeholder="City">
+                </div>
+                <div class="form-group">
+                    <label for="state">State *</label>
+                    <input type="text" id="state" required class="form-control" placeholder="State">
+                </div>
+                <div class="form-group">
+                    <label for="pin_code">PIN Code *</label>
+                    <input type="text" id="pin_code" required class="form-control" placeholder="110001">
+                </div>
+            </div>
+            
+            <h3 style="margin-top:2.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                Payment Method
+            </h3>
+            
+            <div class="form-group" style="display:flex; flex-direction:column; gap:1rem; margin-bottom: 2rem;">
+                <label class="filter-option" style="font-size:1.05rem; color:var(--text-primary);">
+                    <input type="radio" name="payment-method" id="pay-cod" value="COD" checked>
+                    <span>Cash on Delivery (COD)</span>
+                </label>
+                
+                <label class="filter-option" style="font-size:1.05rem; color:var(--text-primary);">
+                    <input type="radio" name="payment-method" id="pay-upi" value="UPI">
+                    <span>UPI Payment (Demo)</span>
+                </label>
+                
+                <label class="filter-option" style="font-size:1.05rem; color:var(--text-primary);">
+                    <input type="radio" name="payment-method" id="pay-card" value="CARD">
+                    <span>Credit / Debit Card (Demo)</span>
+                </label>
+            </div>
+            
+            <!-- Dynamic payment details options -->
+            <div id="payment-fields-upi" class="glass-panel" style="display:none; border-radius:var(--radius-md); padding:1.5rem; margin-bottom:2rem;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label for="upi_id">UPI ID *</label>
+                    <input type="text" id="upi_id" class="form-control" placeholder="username@upi">
+                    <small style="color:var(--text-secondary); margin-top:0.25rem; display:block;">Enter your virtual payment address to pay.</small>
+                </div>
+            </div>
+            
+            <div id="payment-fields-card" class="glass-panel" style="display:none; border-radius:var(--radius-md); padding:1.5rem; margin-bottom:2rem;">
+                <div class="form-group">
+                    <label for="card_num">Card Number *</label>
+                    <input type="text" id="card_num" class="form-control" placeholder="1234 5678 1234 5678">
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="card_expiry">Expiry Date *</label>
+                        <input type="text" id="card_expiry" class="form-control" placeholder="MM/YY">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="card_cvv">CVV *</label>
+                        <input type="password" id="card_cvv" class="form-control" placeholder="•••">
+                    </div>
+                </div>
+            </div>
+            
+            <button type="submit" id="checkout-btn" class="btn btn-primary" style="width:100%; font-size:1.1rem; padding:1rem 2rem;">
+                🚀 Confirm & Place Order
+            </button>
+        </form>
+    </div>
+    
+    <!-- Right: Order Preview summary -->
+    <div class="cart-summary-panel glass-panel">
+        <h3 class="summary-title">Order Items</h3>
+        <div id="checkout-items-list" style="display:flex; flex-direction:column; gap:1rem; max-height: 250px; overflow-y:auto; padding-right:0.5rem; margin-bottom:1.5rem;">
+            <!-- Loaded via Javascript -->
+        </div>
+        
+        <div class="summary-row" style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
+            <span>Subtotal</span>
+            <span id="checkout-subtotal">$0.00</span>
+        </div>
+        <div class="summary-row">
+            <span>Shipping</span>
+            <span style="color:var(--success);">FREE</span>
+        </div>
+        <div class="summary-row total">
+            <span>Total</span>
+            <span id="checkout-total" class="text-gradient">$0.00</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let cartSubtotal = 0;
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('sessionLoaded', async (e) => {
+        if (!e.detail) {
+            window.location.href = '/login?next=/checkout';
+            return;
+        }
+        
+        // Auto-fill form details with user profile info
+        const user = e.detail;
+        document.getElementById('customer_name').value = user.username || '';
+        document.getElementById('mobile_number').value = user.phone || '';
+        document.getElementById('delivery_address').value = user.address || '';
+        document.getElementById('city').value = user.city || '';
+        document.getElementById('state').value = user.state || '';
+        document.getElementById('pin_code').value = user.pin_code || '';
+        
+        await loadCheckoutPreview();
+    });
+    
+    setupPaymentToggles();
+});
+
+async function loadCheckoutPreview() {
+    const res = await API.get('/api/cart');
+    if (res.error || !res.data.items || res.data.items.length === 0) {
+        Toast.warning('Your shopping cart is empty.');
+        setTimeout(() => {
+            window.location.href = '/cart';
+        }, 1000);
+        return;
+    }
+    
+    const { items, subtotal, total } = res.data;
+    cartSubtotal = subtotal;
+    
+    const itemsContainer = document.getElementById('checkout-items-list');
+    itemsContainer.innerHTML = items.map(item => `
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.9rem;">
+            <div style="max-width:200px;">
+                <div style="font-weight:600;">${item.product_name}</div>
+                <div style="color:var(--text-secondary);">Qty: ${item.quantity} x ${App.formatCurrency(item.product_price)}</div>
+            </div>
+            <div style="font-weight:700;">${App.formatCurrency(item.subtotal)}</div>
+        </div>
+    `).join('');
+    
+    document.getElementById('checkout-subtotal').innerText = App.formatCurrency(subtotal);
+    document.getElementById('checkout-total').innerText = App.formatCurrency(total);
+}
+
+function setupPaymentToggles() {
+    const codRadio = document.getElementById('pay-cod');
+    const upiRadio = document.getElementById('pay-upi');
+    const cardRadio = document.getElementById('pay-card');
+    
+    const upiFields = document.getElementById('payment-fields-upi');
+    const cardFields = document.getElementById('payment-fields-card');
+    
+    const toggleFields = () => {
+        if (upiRadio.checked) {
+            upiFields.style.display = 'block';
+            cardFields.style.display = 'none';
+        } else if (cardRadio.checked) {
+            upiFields.style.display = 'none';
+            cardFields.style.display = 'block';
+        } else {
+            upiFields.style.display = 'none';
+            cardFields.style.display = 'none';
+        }
+    };
+    
+    codRadio.addEventListener('change', toggleFields);
+    upiRadio.addEventListener('change', toggleFields);
+    cardRadio.addEventListener('change', toggleFields);
+}
+
+document.getElementById('checkout-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const customer_name = document.getElementById('customer_name').value.trim();
+    const mobile_number = document.getElementById('mobile_number').value.trim();
+    const delivery_address = document.getElementById('delivery_address').value.trim();
+    const city = document.getElementById('city').value.trim();
+    const state = document.getElementById('state').value.trim();
+    const pin_code = document.getElementById('pin_code').value.trim();
+    const payment_method = document.querySelector('input[name="payment-method"]:checked').value;
+    
+    // Front-end validations
+    if (!/^\d{10,12}$/.test(mobile_number)) {
+        Toast.error('Mobile number must be between 10 to 12 digits.');
+        return;
+    }
+    
+    if (pin_code.length < 5 || pin_code.length > 8) {
+        Toast.error('PIN Code must be between 5 to 8 characters.');
+        return;
+    }
+    
+    // Validate custom payment inputs if active
+    if (payment_method === 'UPI') {
+        const upi_id = document.getElementById('upi_id').value.trim();
+        if (!upi_id || !upi_id.includes('@')) {
+            Toast.error('Please enter a valid UPI address (e.g. user@upi).');
+            return;
+        }
+    } else if (payment_method === 'CARD') {
+        const card_num = document.getElementById('card_num').value.replace(/\s/g, '');
+        const card_expiry = document.getElementById('card_expiry').value.trim();
+        const card_cvv = document.getElementById('card_cvv').value.trim();
+        
+        if (!/^\d{16}$/.test(card_num)) {
+            Toast.error('Card number must be a 16-digit integer.');
+            return;
+        }
+        if (!/^\d{2}\/\d{2}$/.test(card_expiry)) {
+            Toast.error('Expiry date must match MM/YY format.');
+            return;
+        }
+        if (!/^\d{3}$/.test(card_cvv)) {
+            Toast.error('CVV must be exactly 3 digits.');
+            return;
+        }
+    }
+    
+    const checkoutBtn = document.getElementById('checkout-btn');
+    checkoutBtn.disabled = true;
+    checkoutBtn.innerText = 'Processing Order...';
+    
+    const payload = {
+        customer_name,
+        mobile_number,
+        delivery_address,
+        city,
+        state,
+        pin_code,
+        payment_method
+    };
+    
+    const res = await API.post('/api/orders', payload);
+    checkoutBtn.disabled = false;
+    checkoutBtn.innerText = '🚀 Confirm & Place Order';
+    
+    if (res.error) {
+        Toast.error(res.error);
+    } else {
+        Toast.success('Order placed successfully!');
+        
+        // Sync Navbar cart size badge
+        await App.updateCartCount();
+        
+        setTimeout(() => {
+            window.location.href = `/order-confirmation?order_id=${res.data.order_id}`;
+        }, 1200);
+    }
+});
+</script>
+{% endblock %}

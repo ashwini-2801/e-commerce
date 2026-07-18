@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AuraShop - Premium E-Commerce{% endblock %}</title>
+    
+    <!-- Google Fonts: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="/static/css/styles.css">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar glass-panel">
+        <a href="/" class="logo">
+            <span style="background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">✦ AuraShop</span>
+        </a>
+        
+        <ul class="nav-links">
+            <li><a href="/" class="nav-link">Home</a></li>
+            <li><a href="/products" class="nav-link">Shop</a></li>
+            <li><a href="/about" class="nav-link">About</a></li>
+            <li><a href="/contact" class="nav-link">Contact</a></li>
+        </ul>
+        
+        <div class="nav-actions">
+            <a href="/cart" class="cart-icon-container" title="View Cart">
+                <span style="font-size:1.4rem;">🛒</span>
+                <span id="cart-badge" class="cart-badge" style="display:none;">0</span>
+            </a>
+            
+            <div id="user-nav-section" style="display:flex; align-items:center; gap:1rem;">
+                <!-- Dynamically filled by app.js -->
+                <div style="width: 28px; height: 28px; border: 3px solid rgba(255,255,255,0.05); border-bottom-color: var(--accent-primary); border-radius: 50%; animation: rotation 1s linear infinite;"></div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>✦ AuraShop</h4>
+                <p>Experience standard, high-performance shopping with premium product selections, swift checkouts, and real-time inventory management.</p>
+                <p>&copy; 2026 AuraShop Inc. All rights reserved.</p>
+            </div>
+            
+            <div class="footer-section">
+                <h4>Quick Links</h4>
+                <ul>
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/products">Shop Catalog</a></li>
+                    <li><a href="/about">About Us</a></li>
+                    <li><a href="/contact">Contact Support</a></li>
+                </ul>
+            </div>
+            
+            <div class="footer-section">
+                <h4>Customer Care</h4>
+                <ul>
+                    <li><a href="/orders">Track My Order</a></li>
+                    <li><a href="/cart">Shopping Cart</a></li>
+                    <li><a href="/login">Account Access</a></li>
+                    <li><a href="/register">Create Profile</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            Designed with absolute aesthetics using Flask, SQLite, and vanilla Web technologies.
+        </div>
+    </footer>
+
+    <!-- Global Javascripts -->
+    <script src="/static/js/toast.js"></script>
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/app.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

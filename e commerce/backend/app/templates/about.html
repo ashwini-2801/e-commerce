@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block title %}About Us - AuraShop{% endblock %}
+
+{% block content %}
+<section style="max-width: 800px; margin: 2rem auto; text-align: center;">
+    <h1 class="text-gradient" style="font-size: 3rem; margin-bottom: 1.5rem;">Our Story</h1>
+    <p style="font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 3rem;">
+        AuraShop is a fully responsive e-commerce web application engineered for high efficiency, speed, and clean code presentation.
+    </p>
+    
+    <div class="glass-panel" style="border-radius: var(--radius-lg); padding: 3rem; text-align: left; margin-bottom: 3rem;">
+        <h2 style="margin-bottom: 1rem;">Why AuraShop?</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+            AuraShop showcases modular architecture combining a robust Python Flask backend using object-relational database models and session authorization, and a high-performance frontend styled purely with Vanilla CSS and animated elements.
+        </p>
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+            Administrators have dedicated dashboards with Chart.js analytics integrations, real-time inventory triggers, and direct order tracking status workflows. Customers experience instant updates, secure carts, and search utilities.
+        </p>
+        
+        <h3 style="margin-top: 2rem; margin-bottom: 0.75rem;">Core Stack Details</h3>
+        <ul style="color: var(--text-secondary); padding-left: 1.5rem;">
+            <li style="margin-bottom: 0.5rem;"><strong>Frontend:</strong> HTML5, CSS3 Variables & Grids, Vanilla JS ES6 modules</li>
+            <li style="margin-bottom: 0.5rem;"><strong>Backend:</strong> Python Flask, Blueprints routing structure</li>
+            <li style="margin-bottom: 0.5rem;"><strong>Database:</strong> SQLite local storage with abstraction layers (SQLAlchemy ORM)</li>
+            <li style="margin-bottom: 0.5rem;"><strong>Security:</strong> Session management, Werkzeug password encryption, API validations</li>
+        </ul>
+    </div>
+</section>
+{% endblock %}

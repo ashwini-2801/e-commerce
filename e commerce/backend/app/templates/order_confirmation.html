@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block title %}Order Placed - AuraShop{% endblock %}
+
+{% block content %}
+<section style="max-width: 650px; margin: 4rem auto; text-align: center;">
+    <div class="glass-panel" style="border-radius: var(--radius-lg); padding: 4rem 2rem; border: 1.5px solid var(--success);">
+        <span style="font-size: 5rem; color: var(--success); filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.4));">✓</span>
+        
+        <h1 class="text-gradient" style="font-size: 2.5rem; margin-top: 1.5rem; margin-bottom: 0.5rem;">Thank You!</h1>
+        <h2 style="font-size: 1.4rem; margin-bottom: 1.5rem;">Your Order Has Been Placed</h2>
+        
+        <p style="color: var(--text-secondary); margin-bottom: 2rem; font-size: 1.05rem;">
+            We have received your request. An invoice detail containing tracking routes has been saved to your account.
+        </p>
+        
+        <div class="glass-panel" style="border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 2.5rem; background: rgba(255, 255, 255, 0.02); display: inline-block;">
+            <span style="font-size: 0.9rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem; font-weight: 500;">ORDER REFERENCE ID</span>
+            <strong style="font-size: 1.2rem; color: var(--text-primary); letter-spacing: 0.5px;" id="disp-order-id">{{ order_id }}</strong>
+        </div>
+        
+        <div style="display:flex; justify-content:center; gap:1.5rem; flex-wrap:wrap;">
+            <a href="/orders" class="btn btn-primary">📦 Track Order Status</a>
+            <a href="/products" class="btn btn-secondary">Continue Shopping</a>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // If order_id isn't rendered directly, grab it from URL parameters
+    const orderId = "{{ order_id }}" || App.getQueryParam('order_id');
+    if (orderId) {
+        document.getElementById('disp-order-id').innerText = orderId;
+    }
+});
+</script>
+{% endblock %}

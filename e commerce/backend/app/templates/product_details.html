@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+
+{% block title %}Product Details - AuraShop{% endblock %}
+
+{% block content %}
+<div id="details-view-container">
+    <div class="loader-container"><div class="loader"></div></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const productId = {{ product_id }};
+let productData = null;
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await fetchProductDetails();
+});
+
+async function fetchProductDetails() {
+    const container = document.getElementById('details-view-container');
+    const res = await API.get(`/api/products/${productId}`);
+    
+    if (res.error) {
+        container.innerHTML = `
+            <div class="glass-panel" style="border-radius:var(--radius-lg); padding:3rem; text-align:center; color:var(--danger);">
+                <h3>Product not found or database error: ${res.error}</h3>
+                <a href="/products" class="btn btn-secondary" style="margin-top:1.5rem;">Back to Shop</a>
+            </div>
+        `;
+        return;
+    }
+    
+    productData = res.data;
+    const inStock = productData.stock > 0;
+    
+    container.innerHTML = `
+        <div class="product-details-container">
+            <!-- Product Image Panel -->
+            <div class="details-image-panel glass-panel">
+                <img src="${productData.image_url}" alt="${productData.name}" class="details-image" onerror="this.src='/static/uploads/placeholder.webp'">
+            </div>
+            
+            <!-- Product Specs Panel -->
+            <div class="details-info-panel">
+                <span class="details-category">${productData.category_name}</span>
+                <h1 class="details-title">${productData.name}</h1>
+                
+                <div class="details-stock-status">
+                    ${productData.stock > 0 ? 
+                        (productData.stock <= 5 ? `<span class="stock-badge stock-low">Only ${productData.stock} units remaining!</span>` : '<span class="stock-badge stock-in">Product In Stock</span>') 
+                        : '<span class="stock-badge stock-out">Out of Stock</span>'}
+                </div>
+                
+                <div class="details-price text-gradient">${App.formatCurrency(productData.price)}</div>
+                
+                <p class="details-description">${productData.description || 'No product description available.'}</p>
+                
+                <!-- Purchase Actions -->
+                <div style="display:flex; align-items:center; margin-top:2rem;">
+                    ${inStock ? `
+                        <div class="qty-control">
+                            <button type="button" class="qty-btn" onclick="adjustQty(-1)">-</button>
+                            <input type="text" id="qty-input" class="qty-input" value="1" readonly>
+                            <button type="button" class="qty-btn" onclick="adjustQty(1)">+</button>
+                        </div>
+                        <button type="button" id="add-to-cart-btn" class="btn btn-primary" onclick="addToCart()">
+                            🛒 Add to Cart
+                        </button>
+                    ` : `
+                        <button type="button" class="btn btn-secondary" disabled style="width:100%;">
+                            ❌ Out of Stock
+                        </button>
+                    `}
+                </div>
+                
+                <div style="margin-top:2rem;">
+                    <a href="/products" class="btn btn-secondary" style="padding:0.5rem 1rem; font-size:0.9rem;">
+                        ➔ Back to Product Catalog
+                    </a>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function adjustQty(amount) {
+    const input = document.getElementById('qty-input');
+    if (!input || !productData) return;
+    
+    let currentVal = parseInt(input.value) || 1;
+    let newVal = currentVal + amount;
+    
+    if (newVal < 1) newVal = 1;
+    if (newVal > productData.stock) {
+        newVal = productData.stock;
+        Toast.warning(`Cannot exceed available stock limit (${productData.stock} units).`);
+    }
+    
+    input.value = newVal;
+}
+
+async function addToCart() {
+    if (!App.user) {
+        Toast.info('Please sign in to add items to your cart.');
+        setTimeout(() => {
+            window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+        }, 1200);
+        return;
+    }
+    
+    const qtyInput = document.getElementById('qty-input');
+    const quantity = parseInt(qtyInput.value) || 1;
+    const addBtn = document.getElementById('add-to-cart-btn');
+    
+    addBtn.disabled = true;
+    addBtn.innerText = 'Adding to Cart...';
+    
+    const res = await API.post('/api/cart', {
+        product_id: productId,
+        quantity: quantity
+    });
+    
+    addBtn.disabled = false;
+    addBtn.innerText = '🛒 Add to Cart';
+    
+    if (res.error) {
+        Toast.error(res.error);
+    } else {
+        Toast.success(`${productData.name} added to cart!`);
+        // Sync Navbar cart size
+        await App.updateCartCount();
+    }
+}
+</script>
+{% endblock %}

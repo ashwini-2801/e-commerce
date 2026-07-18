@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+
+{% block title %}Contact Us - AuraShop{% endblock %}
+
+{% block content %}
+<section style="max-width: 900px; margin: 2rem auto;">
+    <h1 class="text-gradient" style="font-size: 3rem; text-align: center; margin-bottom: 3rem;">Get In Touch</h1>
+    
+    <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 3rem;">
+        <!-- Contact Form -->
+        <div class="glass-panel" style="border-radius: var(--radius-lg); padding: 2.5rem;">
+            <h2 style="margin-bottom: 1.5rem;">Send a Message</h2>
+            <form id="contact-form">
+                <div class="form-group">
+                    <label for="name">Your Name *</label>
+                    <input type="text" id="name" required class="form-control" placeholder="Enter your full name">
+                </div>
+                <div class="form-group">
+                    <label for="email">Email Address *</label>
+                    <input type="email" id="email" required class="form-control" placeholder="Enter your email address">
+                </div>
+                <div class="form-group">
+                    <label for="phone">Phone Number</label>
+                    <input type="tel" id="phone" class="form-control" placeholder="Enter 10-digit phone number">
+                </div>
+                <div class="form-group">
+                    <label for="message">Message *</label>
+                    <textarea id="message" required class="form-control" rows="5" placeholder="Write your message here..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Submit Message</button>
+            </form>
+        </div>
+        
+        <!-- Info Cards -->
+        <div style="display: flex; flex-direction: column; gap: 2rem;">
+            <div class="glass-panel" style="border-radius: var(--radius-md); padding: 1.5rem;">
+                <h3 style="margin-bottom: 0.5rem;">📍 Corporate Office</h3>
+                <p style="color: var(--text-secondary);">
+                    AuraShop Technologies Ltd.<br>
+                    Level 12, Infinity Towers<br>
+                    Silicon Valley, CA 94025
+                </p>
+            </div>
+            
+            <div class="glass-panel" style="border-radius: var(--radius-md); padding: 1.5rem;">
+                <h3 style="margin-bottom: 0.5rem;">📞 Support Center</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 0.5rem;">
+                    <strong>General Support:</strong> +1 (800) 123-4567
+                </p>
+                <p style="color: var(--text-secondary);">
+                    <strong>Enterprise Sales:</strong> +1 (800) 987-6543
+                </p>
+            </div>
+            
+            <div class="glass-panel" style="border-radius: var(--radius-md); padding: 1.5rem;">
+                <h3 style="margin-bottom: 0.5rem;">✉ Email Support</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 0.5rem;">
+                    <strong>Help Desk:</strong> support@aurashop.com
+                </p>
+                <p style="color: var(--text-secondary);">
+                    <strong>Admin Enquiries:</strong> admin@aurashop.com
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('contact-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    
+    const name = document.getElementById('name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const message = document.getElementById('message').value.trim();
+    
+    // Custom phone validation (if entered)
+    if (phone && !/^\d{10}$/.test(phone)) {
+        Toast.error('Phone number must be exactly 10 digits.');
+        return;
+    }
+    
+    if (message.length < 10) {
+        Toast.error('Message must be at least 10 characters long.');
+        return;
+    }
+    
+    // Simulate successful contact submission
+    Toast.success(`Thank you, ${name}! Your message has been sent successfully.`);
+    document.getElementById('contact-form').reset();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+
+{% block title %}Shopping Cart - AuraShop{% endblock %}
+
+{% block content %}
+<h1 class="text-gradient" style="margin-bottom: 2rem;">Your Shopping Cart</h1>
+
+<div id="cart-empty-panel" style="display:none;" class="glass-panel">
+    <div style="text-align:center; padding:4rem 2rem;">
+        <span style="font-size:4rem;">🛒</span>
+        <h3 style="margin-top:1.5rem; margin-bottom:1rem;">Your Shopping Cart is Empty</h3>
+        <p style="color:var(--text-secondary); margin-bottom:2rem;">Add items to your cart from our premium catalog to proceed.</p>
+        <a href="/products" class="btn btn-primary">Start Shopping</a>
+    </div>
+</div>
+
+<div id="cart-active-layout" class="cart-layout" style="display:none;">
+    <!-- Items Panel -->
+    <div class="cart-items-panel" id="cart-items-list">
+        <!-- Loaded via JavaScript -->
+    </div>
+    
+    <!-- Summary Panel -->
+    <div class="cart-summary-panel glass-panel">
+        <h3 class="summary-title">Order Summary</h3>
+        <div class="summary-row">
+            <span>Subtotal</span>
+            <span id="summary-subtotal">$0.00</span>
+        </div>
+        <div class="summary-row">
+            <span>Delivery Fees</span>
+            <span style="color:var(--success);">FREE</span>
+        </div>
+        <div class="summary-row total">
+            <span>Total</span>
+            <span id="summary-total" class="text-gradient">$0.00</span>
+        </div>
+        
+        <div style="margin-top:2rem; display:flex; flex-direction:column; gap:1rem;">
+            <a href="/checkout" class="btn btn-primary" style="width:100%;">Proceed to Checkout ➔</a>
+            <button class="btn btn-secondary" onclick="clearCart()" style="width:100%;">🗑 Clear Cart</button>
+            <a href="/products" style="text-align:center; font-size:0.9rem; color:var(--text-secondary);">Continue Shopping</a>
+        </div>
+    </div>
+</div>
+
+<div id="cart-loading-panel">
+    <div class="loader-container"><div class="loader"></div></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    // Session is checked in app.js. Make sure they are logged in.
+    document.addEventListener('sessionLoaded', async (e) => {
+        if (!e.detail) {
+            window.location.href = '/login?next=/cart';
+            return;
+        }
+        await loadCartDetails();
+    });
+});
+
+async function loadCartDetails() {
+    document.getElementById('cart-loading-panel').style.display = 'block';
+    
+    const res = await API.get('/api/cart');
+    
+    document.getElementById('cart-loading-panel').style.display = 'none';
+    
+    if (res.error) {
+        Toast.error(res.error);
+        return;
+    }
+    
+    const { items, subtotal, total } = res.data;
+    const emptyPanel = document.getElementById('cart-empty-panel');
+    const activeLayout = document.getElementById('cart-active-layout');
+    
+    if (!items || items.length === 0) {
+        emptyPanel.style.display = 'block';
+        activeLayout.style.display = 'none';
+        return;
+    }
+    
+    emptyPanel.style.display = 'none';
+    activeLayout.style.display = 'grid';
+    
+    // Render list
+    const itemsList = document.getElementById('cart-items-list');
+    itemsList.innerHTML = items.map(item => `
+        <div class="cart-item glass-panel">
+            <img src="${item.product_image}" alt="${item.product_name}" class="cart-item-image" onerror="this.src='/static/uploads/placeholder.webp'">
+            
+            <div class="cart-item-details">
+                <h4 class="cart-item-title">${item.product_name}</h4>
+                <div class="cart-item-price">${App.formatCurrency(item.product_price)}</div>
+            </div>
+            
+            <div class="cart-item-actions">
+                <div class="qty-control" style="margin-right:0;">
+                    <button type="button" class="qty-btn" onclick="updateItemQty(${item.product_id}, ${item.quantity - 1}, ${item.product_stock})">-</button>
+                    <input type="text" class="qty-input" value="${item.quantity}" readonly style="width:40px;">
+                    <button type="button" class="qty-btn" onclick="updateItemQty(${item.product_id}, ${item.quantity + 1}, ${item.product_stock})">+</button>
+                </div>
+                
+                <span class="remove-item-btn" onclick="removeItem(${item.product_id})" title="Remove item" style="font-size:1.5rem; font-weight:bold; cursor:pointer;">×</span>
+            </div>
+        </div>
+    `).join('');
+    
+    // Update summary values
+    document.getElementById('summary-subtotal').innerText = App.formatCurrency(subtotal);
+    document.getElementById('summary-total').innerText = App.formatCurrency(total);
+}
+
+async function updateItemQty(productId, newQty, stockLimit) {
+    if (newQty <= 0) {
+        // If qty becomes zero, delete item
+        await removeItem(productId);
+        return;
+    }
+    
+    if (newQty > stockLimit) {
+        Toast.warning(`Cannot exceed stock limit of ${stockLimit} units.`);
+        return;
+    }
+    
+    const res = await API.put(`/api/cart/${productId}`, { quantity: newQty });
+    if (res.error) {
+        Toast.error(res.error);
+    } else {
+        await loadCartDetails();
+        // Sync Navbar cart size
+        await App.updateCartCount();
+    }
+}
+
+async function removeItem(productId) {
+    if (!confirm("Remove this item from your cart?")) return;
+    
+    const res = await API.delete(`/api/cart/${productId}`);
+    if (res.error) {
+        Toast.error(res.error);
+    } else {
+        Toast.success("Item removed from cart.");
+        await loadCartDetails();
+        // Sync Navbar cart size
+        await App.updateCartCount();
+    }
+}
+
+async function clearCart() {
+    if (!confirm("Clear your entire cart?")) return;
+    
+    const res = await API.delete('/api/cart');
+    if (res.error) {
+        Toast.error(res.error);
+    } else {
+        Toast.success("Cart cleared.");
+        await loadCartDetails();
+        // Sync Navbar cart size
+        await App.updateCartCount();
+    }
+}
+</script>
+{% endblock %}

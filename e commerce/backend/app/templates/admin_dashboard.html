@@ -1,0 +1,295 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Dashboard - AuraShop{% endblock %}
+
+{% block extra_css %}
+<!-- Include Admin dashboard CSS -->
+<link rel="stylesheet" href="/static/css/admin.css">
+{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem;">
+    <h1 class="text-gradient">Admin Dashboard</h1>
+    
+    <div style="display:flex; gap:1rem;">
+        <a href="/admin/products" class="btn btn-secondary">📦 Manage Products</a>
+        <a href="/admin/orders" class="btn btn-secondary">📋 Manage Orders</a>
+    </div>
+</div>
+
+<!-- Summary Metric Cards -->
+<div class="admin-grid" id="metrics-container">
+    <div class="metric-card glass-panel">
+        <span class="metric-label">Total Revenue</span>
+        <span class="metric-value" id="val-revenue">$0.00</span>
+    </div>
+    <div class="metric-card glass-panel">
+        <span class="metric-label">Total Orders</span>
+        <span class="metric-value" id="val-orders">0</span>
+    </div>
+    <div class="metric-card glass-panel">
+        <span class="metric-label">Total Products</span>
+        <span class="metric-value" id="val-products">0</span>
+    </div>
+    <div class="metric-card glass-panel">
+        <span class="metric-label">Total Customers</span>
+        <span class="metric-value" id="val-users">0</span>
+    </div>
+</div>
+
+<!-- Charts section -->
+<div class="charts-grid">
+    <!-- Chart 1: Sales Revenue (Line chart) -->
+    <div class="chart-card glass-panel">
+        <div class="chart-header">
+            <h3>Revenue Over Time</h3>
+        </div>
+        <div class="chart-container">
+            <canvas id="revenueChart"></canvas>
+        </div>
+    </div>
+    
+    <!-- Chart 2: Order Status Distribution (Doughnut) -->
+    <div class="chart-card glass-panel">
+        <div class="chart-header">
+            <h3>Orders status</h3>
+        </div>
+        <div class="chart-container">
+            <canvas id="statusChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Low stock and categories row -->
+<div style="display:grid; grid-template-columns: 1fr 1.2fr; gap:2rem; margin-bottom:3rem;">
+    <!-- Low Stock warning panel -->
+    <div class="low-stock-panel glass-panel" style="border:1.5px solid rgba(245, 158, 11, 0.2);">
+        <h3 style="margin-bottom:1rem; display:flex; align-items:center; gap:0.5rem;">
+            ⚠️ Low Stock Warnings <span id="low-stock-count" class="stock-badge stock-low" style="font-size:0.85rem;">0</span>
+        </h3>
+        <ul class="low-stock-list" id="low-stock-items-list">
+            <!-- Loaded via JS -->
+            <li style="color:var(--text-muted); font-size:0.9rem;">No products are currently low in stock.</li>
+        </ul>
+    </div>
+    
+    <!-- Chart 3: Category Distribution (Bar) -->
+    <div class="chart-card glass-panel">
+        <h3 style="margin-bottom:1rem;">Products by Category</h3>
+        <div class="chart-container" style="height:220px;">
+            <canvas id="categoryChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Orders table -->
+<div class="glass-panel" style="border-radius:var(--radius-lg); padding:2rem; margin-bottom:3rem;">
+    <h3 style="margin-bottom:1.5rem;">Recent Orders</h3>
+    <div class="table-responsive">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Order ID</th>
+                    <th>Customer Name</th>
+                    <th>Date Placed</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="recent-orders-list">
+                <tr>
+                    <td colspan="6" style="text-align:center; padding:2rem; color:var(--text-secondary);">Loading orders...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Include Chart.js from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('sessionLoaded', async (e) => {
+        if (!e.detail || e.detail.role !== 'admin') {
+            Toast.error('Access Denied. Admins only.');
+            window.location.href = '/';
+            return;
+        }
+        await loadDashboard();
+    });
+});
+
+async function loadDashboard() {
+    const res = await API.get('/api/admin/dashboard');
+    if (res.error) {
+        Toast.error(res.error);
+        return;
+    }
+    
+    const data = res.data;
+    
+    // Fill metrics
+    document.getElementById('val-revenue').innerText = App.formatCurrency(data.revenue);
+    document.getElementById('val-orders').innerText = data.total_orders;
+    document.getElementById('val-products').innerText = data.total_products;
+    document.getElementById('val-users').innerText = data.total_users;
+    
+    // Fill low stock warnings
+    const lowStockList = document.getElementById('low-stock-items-list');
+    document.getElementById('low-stock-count').innerText = data.low_stock_products.length;
+    
+    if (data.low_stock_products.length === 0) {
+        lowStockList.innerHTML = `<li style="color:var(--text-muted); font-size:0.9rem;">No products are currently low in stock (stock ≤ 5).</li>`;
+    } else {
+        lowStockList.innerHTML = data.low_stock_products.map(p => `
+            <li class="low-stock-item">
+                <span><strong>${p.name}</strong> <span style="color:var(--text-muted); font-size:0.8rem;">(${p.category_name})</span></span>
+                <span class="low-stock-warning">${p.stock} left in stock</span>
+            </li>
+        `).join('');
+    }
+    
+    // Fill recent orders
+    const ordersList = document.getElementById('recent-orders-list');
+    if (data.recent_orders.length === 0) {
+        ordersList.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">No orders placed yet.</td></tr>`;
+    } else {
+        ordersList.innerHTML = data.recent_orders.map(o => {
+            const dateFormatted = new Date(o.created_at).toLocaleDateString('en-US', {
+                month: 'short', day: 'numeric', year: 'numeric'
+            });
+            let badgeClass = 'status-pending';
+            if (o.status === 'Confirmed') badgeClass = 'status-confirmed';
+            else if (o.status === 'Delivered') badgeClass = 'status-delivered';
+            else if (o.status === 'Cancelled') badgeClass = 'status-cancelled';
+            
+            return `
+                <tr>
+                    <td><strong>${o.id}</strong></td>
+                    <td>${o.customer_name}</td>
+                    <td>${dateFormatted}</td>
+                    <td>${App.formatCurrency(o.total_amount)}</td>
+                    <td><span class="status-badge ${badgeClass}" style="font-size:0.75rem;">${o.status}</span></td>
+                    <td><a href="/admin/orders?order_id=${o.id}" class="btn btn-secondary" style="padding:0.25rem 0.5rem; font-size:0.8rem;">Manage</a></td>
+                </tr>
+            `;
+        }).join('');
+    }
+    
+    // Render Charts
+    renderRevenueChart(data.charts.sales);
+    renderStatusChart(data.charts.status);
+    renderCategoryChart(data.charts.categories);
+}
+
+function renderRevenueChart(salesData) {
+    const ctx = document.getElementById('revenueChart').getContext('2d');
+    
+    // Fallback if labels are empty
+    const labels = salesData.labels.length > 0 ? salesData.labels : ['No Data'];
+    const data = salesData.data.length > 0 ? salesData.data : [0];
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Sales ($)',
+                data: data,
+                borderColor: '#8a2be2',
+                backgroundColor: 'rgba(138, 43, 226, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: { color: '#9ca3af' }
+                },
+                y: {
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: { color: '#9ca3af' }
+                }
+            }
+        }
+    });
+}
+
+function renderStatusChart(statusData) {
+    const ctx = document.getElementById('statusChart').getContext('2d');
+    const labels = statusData.labels.length > 0 ? statusData.labels : ['No Orders'];
+    const data = statusData.data.length > 0 ? statusData.data : [1];
+    const colors = ['#f59e0b', '#3b82f6', '#8a2be2', '#10b981', '#ef4444', '#6b7280'];
+    
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: colors.slice(0, labels.length),
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { color: '#9ca3af', boxWidth: 12 }
+                }
+            }
+        }
+    });
+}
+
+function renderCategoryChart(categoryData) {
+    const ctx = document.getElementById('categoryChart').getContext('2d');
+    const labels = categoryData.labels.length > 0 ? categoryData.labels : ['No Products'];
+    const data = categoryData.data.length > 0 ? categoryData.data : [0];
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: 'rgba(138, 43, 226, 0.6)',
+                borderColor: '#8a2be2',
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#9ca3af' }
+                },
+                y: {
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: { color: '#9ca3af', stepSize: 1 }
+                }
+            }
+        }
+    });
+}
+</script>
+{% endblock %}

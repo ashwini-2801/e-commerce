@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Account - AuraShop{% endblock %}
+
+{% block content %}
+<div class="auth-container glass-panel" style="max-width: 580px; margin: 2rem auto;">
+    <div class="auth-header">
+        <h2 class="text-gradient">Get Started</h2>
+        <p>Register a profile to search, filter, order, and track items.</p>
+    </div>
+    
+    <form id="register-form">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+                <label for="username">Username *</label>
+                <input type="text" id="username" required class="form-control" placeholder="johndoe">
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email Address *</label>
+                <input type="email" id="email" required class="form-control" placeholder="john@example.com">
+            </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+                <label for="password">Password * (min 6 chars)</label>
+                <input type="password" id="password" required class="form-control" placeholder="••••••••">
+            </div>
+            
+            <div class="form-group">
+                <label for="confirm-password">Confirm Password *</label>
+                <input type="password" id="confirm-password" required class="form-control" placeholder="••••••••">
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="phone">Phone Number (10 digits)</label>
+            <input type="tel" id="phone" class="form-control" placeholder="9876543210">
+        </div>
+        
+        <h3 style="font-size:1.1rem; margin-top:1.5rem; margin-bottom:1rem; border-bottom:1px solid var(--border-color); padding-bottom:0.5rem; color:var(--text-secondary);">
+            Delivery Address (Optional)
+        </h3>
+        
+        <div class="form-group">
+            <label for="address">Street Address</label>
+            <input type="text" id="address" class="form-control" placeholder="Apartment, Street Name">
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+            <div class="form-group">
+                <label for="city">City</label>
+                <input type="text" id="city" class="form-control" placeholder="City">
+            </div>
+            <div class="form-group">
+                <label for="state">State</label>
+                <input type="text" id="state" class="form-control" placeholder="State">
+            </div>
+            <div class="form-group">
+                <label for="pin_code">PIN Code</label>
+                <input type="text" id="pin_code" class="form-control" placeholder="110001">
+            </div>
+        </div>
+        
+        <button type="submit" id="submit-btn" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+            Create Account
+        </button>
+    </form>
+    
+    <div class="auth-footer">
+        Already have an account? <a href="/login">Sign In here</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('register-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const username = document.getElementById('username').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+    const phone = document.getElementById('phone').value.trim();
+    const address = document.getElementById('address').value.trim();
+    const city = document.getElementById('city').value.trim();
+    const state = document.getElementById('state').value.trim();
+    const pin_code = document.getElementById('pin_code').value.trim();
+    const submitBtn = document.getElementById('submit-btn');
+    
+    // Front-end validations
+    if (username.length < 3) {
+        Toast.error('Username must be at least 3 characters long.');
+        return;
+    }
+    
+    if (password.length < 6) {
+        Toast.error('Password must be at least 6 characters long.');
+        return;
+    }
+    
+    if (password !== confirmPassword) {
+        Toast.error('Passwords do not match.');
+        return;
+    }
+    
+    if (phone && !/^\d{10}$/.test(phone)) {
+        Toast.error('Phone number must be exactly 10 digits.');
+        return;
+    }
+    
+    submitBtn.disabled = true;
+    submitBtn.innerText = 'Creating Account...';
+    
+    const payload = {
+        username,
+        email,
+        password,
+        phone,
+        address,
+        city,
+        state,
+        pin_code
+    };
+    
+    const res = await API.post('/api/auth/register', payload);
+    
+    submitBtn.disabled = false;
+    submitBtn.innerText = 'Create Account';
+    
+    if (res.error) {
+        Toast.error(res.error);
+    } else {
+        Toast.success('Account created successfully! Please sign in.');
+        setTimeout(() => {
+            window.location.href = '/login';
+        }, 1500);
+    }
+});
+</script>
+{% endblock %}

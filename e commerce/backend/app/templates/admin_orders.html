@@ -1,0 +1,221 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Orders - AuraShop{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/admin.css">
+{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem;">
+    <h1 class="text-gradient">Manage All Orders</h1>
+    <a href="/admin" class="btn btn-secondary">⇤ Back to Dashboard</a>
+</div>
+
+<!-- Filters Bar -->
+<div class="glass-panel" style="border-radius:var(--radius-md); padding:1rem 1.5rem; margin-bottom:2rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1.5rem;">
+    <div class="search-container" style="max-width:350px;">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="order-search" class="form-control search-input" placeholder="Search by Order ID or Customer Name...">
+    </div>
+    
+    <div style="display:flex; gap:1rem; align-items:center;">
+        <span style="font-size:0.95rem; color:var(--text-secondary); font-weight:600;">Status:</span>
+        <select id="status-filter" class="form-control" style="width:160px; padding:0.4rem 2rem 0.4rem 1rem; font-size:0.9rem;">
+            <option value="ALL">All Statuses</option>
+            <option value="Pending">Pending</option>
+            <option value="Confirmed">Confirmed</option>
+            <option value="Packed">Packed</option>
+            <option value="Shipped">Shipped</option>
+            <option value="Out for Delivery">Out for Delivery</option>
+            <option value="Delivered">Delivered</option>
+            <option value="Cancelled">Cancelled</option>
+        </select>
+    </div>
+</div>
+
+<!-- Orders Listing List -->
+<div id="admin-orders-container" style="display:flex; flex-direction:column; gap:2rem;">
+    <!-- Loaded dynamically -->
+    <div class="loader-container"><div class="loader"></div></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allOrders = [];
+let targetOrderId = '';
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Grab if any specific order ID should be focused
+    targetOrderId = App.getQueryParam('order_id') || '';
+    
+    document.addEventListener('sessionLoaded', async (e) => {
+        if (!e.detail || e.detail.role !== 'admin') {
+            Toast.error('Access Denied. Admins only.');
+            window.location.href = '/';
+            return;
+        }
+        await loadAllOrders();
+    });
+    
+    // Register search/filter events
+    document.getElementById('order-search').addEventListener('input', filterOrders);
+    document.getElementById('status-filter').addEventListener('change', filterOrders);
+});
+
+async function loadAllOrders() {
+    const container = document.getElementById('admin-orders-container');
+    container.innerHTML = '<div class="loader-container"><div class="loader"></div></div>';
+    
+    const res = await API.get('/api/orders?all=true');
+    if (res.error) {
+        container.innerHTML = `<p style="text-align:center; color:var(--danger)">Failed to fetch orders: ${res.error}</p>`;
+        return;
+    }
+    
+    allOrders = res.data;
+    renderOrdersList(allOrders);
+    
+    // If a target order ID is supplied, highlight and scroll to it
+    if (targetOrderId) {
+        setTimeout(() => {
+            const card = document.getElementById(`card-${targetOrderId}`);
+            if (card) {
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                card.style.border = '2px solid var(--accent-primary)';
+                card.style.boxShadow = 'var(--accent-glow)';
+                
+                // Remove highlight style after 3 seconds
+                setTimeout(() => {
+                    card.style.transition = 'all 0.5s ease';
+                    card.style.border = '1px solid var(--border-color)';
+                    card.style.boxShadow = 'none';
+                }, 3000);
+            }
+        }, 500);
+    }
+}
+
+function renderOrdersList(orders) {
+    const container = document.getElementById('admin-orders-container');
+    if (orders.length === 0) {
+        container.innerHTML = `<p style="text-align:center; padding:3rem; color:var(--text-secondary);" class="glass-panel">No orders match the selected filters.</p>`;
+        return;
+    }
+    
+    container.innerHTML = orders.map(order => {
+        const dateFormatted = new Date(order.created_at).toLocaleString('en-US', {
+            year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+        
+        // Options statuses list
+        const statusOptions = ['Pending', 'Confirmed', 'Packed', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled'];
+        const selectOptions = statusOptions.map(opt => `
+            <option value="${opt}" ${order.status === opt ? 'selected' : ''}>${opt}</option>
+        `).join('');
+        
+        const itemsHtml = order.items.map(item => `
+            <div class="order-item-row" style="padding:0.4rem 0; border-bottom:1px solid rgba(255,255,255,0.02)">
+                <span><strong>${item.product_name}</strong> (ID: ${item.product_id}) x${item.quantity}</span>
+                <span>${App.formatCurrency(item.price_at_purchase)}</span>
+            </div>
+        `).join('');
+
+        let badgeClass = 'status-pending';
+        if (order.status === 'Confirmed') badgeClass = 'status-confirmed';
+        else if (order.status === 'Packed') badgeClass = 'status-packed';
+        else if (order.status === 'Shipped') badgeClass = 'status-shipped';
+        else if (order.status === 'Out for Delivery') badgeClass = 'status-out_for_delivery';
+        else if (order.status === 'Delivered') badgeClass = 'status-delivered';
+        else if (order.status === 'Cancelled') badgeClass = 'status-cancelled';
+
+        return `
+            <div class="order-card glass-panel" id="card-${order.id}">
+                <div class="order-header">
+                    <div>
+                        <strong>Order Ref: ${order.id}</strong>
+                        <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">Placed on: ${dateFormatted}</div>
+                    </div>
+                    <span class="status-badge ${badgeClass}">${order.status}</span>
+                </div>
+                
+                <div class="order-body">
+                    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:2.5rem;">
+                        <!-- Left details -->
+                        <div>
+                            <h4 style="margin-bottom:0.5rem; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:0.25rem;">Products Ordered</h4>
+                            <div style="margin-bottom:1.5rem;">
+                                ${itemsHtml}
+                            </div>
+                            
+                            <h4>Customer Details</h4>
+                            <div style="font-size:0.9rem; color:var(--text-secondary); line-height:1.6; margin-top:0.5rem;">
+                                <strong>Name:</strong> ${order.customer_name}<br>
+                                <strong>Mobile:</strong> ${order.mobile_number}<br>
+                                <strong>Address:</strong> ${order.delivery_address}, ${order.city}, ${order.state} - ${order.pin_code}
+                            </div>
+                        </div>
+                        
+                        <!-- Right control status actions -->
+                        <div style="border-left:1px solid var(--border-color); padding-left:2rem; display:flex; flex-direction:column; justify-content:space-between;">
+                            <div>
+                                <h4 style="margin-bottom:0.5rem;">Payment Information</h4>
+                                <div style="font-size:0.9rem; color:var(--text-secondary);">
+                                    Method: ${order.payment_method}<br>
+                                    Status: <span style="font-weight:600; color:${order.payment_status === 'Paid' ? 'var(--success)' : (order.payment_status === 'Refunded' ? 'var(--info)' : 'var(--warning)')}">${order.payment_status}</span>
+                                </div>
+                                <div style="font-size:1.4rem; font-weight:800; margin-top:1rem;" class="text-gradient">
+                                    Total: ${App.formatCurrency(order.total_amount)}
+                                </div>
+                            </div>
+                            
+                            <div style="margin-top:1.5rem;">
+                                <label style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-secondary); margin-bottom:0.5rem;">Update Order Status</label>
+                                <div style="display:flex; gap:0.5rem;">
+                                    <select id="status-select-${order.id}" class="form-control" style="font-size:0.9rem; padding:0.4rem 1rem;">
+                                        ${selectOptions}
+                                    </select>
+                                    <button type="button" class="btn btn-primary" style="padding:0.4rem 1rem; font-size:0.9rem;" onclick="updateOrderStatus('${order.id}')">
+                                        Update
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function filterOrders() {
+    const searchVal = document.getElementById('order-search').value.toLowerCase().trim();
+    const statusVal = document.getElementById('status-filter').value;
+    
+    const filtered = allOrders.filter(order => {
+        const matchesSearch = order.id.toLowerCase().includes(searchVal) || 
+                              order.customer_name.toLowerCase().includes(searchVal);
+                              
+        const matchesStatus = statusVal === 'ALL' || order.status === statusVal;
+        
+        return matchesSearch && matchesStatus;
+    });
+    
+    renderOrdersList(filtered);
+}
+
+async function updateOrderStatus(orderId) {
+    const statusSelect = document.getElementById(`status-select-${orderId}`);
+    const newStatus = statusSelect.value;
+    
+    const res = await API.put(`/api/orders/${orderId}`, { status: newStatus });
+    if (res.error) {
+        Toast.error(res.error);
+    } else {
+        Toast.success(`Order ${orderId} updated to "${newStatus}" successfully.`);
+        await loadAllOrders();
+    }
+}
+</script>
+{% endblock %}

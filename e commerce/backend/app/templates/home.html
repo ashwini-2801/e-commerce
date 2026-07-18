@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}AuraShop - Premium Curated Products{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero">
+    <div class="hero-text">
+        <h1 class="text-gradient">Upgrade Your Lifestyle With AuraShop</h1>
+        <p>Explore our premium catalog of high-performance tech gadgets, trending fashion apparel, ergonomic office gear, and daily essentials.</p>
+        <div style="display:flex; gap:1rem;">
+            <a href="/products" class="btn btn-primary">Start Shopping</a>
+            <a href="/about" class="btn btn-secondary">Learn More</a>
+        </div>
+    </div>
+    
+    <div class="hero-image-container">
+        <div class="hero-glow"></div>
+        <!-- High-fidelity solid mockup created programmatically -->
+        <div class="glass-panel" style="width:400px; height:300px; border-radius:var(--radius-lg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1rem; box-shadow:var(--shadow-lg); border:1.5px solid var(--border-focus);">
+            <div style="font-size:4rem; animation: rotation 4s linear infinite;">✦</div>
+            <div style="font-weight:700; font-size:1.5rem; letter-spacing:1px;">CURATED EXCELLENCE</div>
+            <div style="color:var(--text-secondary); text-align:center; font-size:0.9rem; padding:0 2rem;">Fast Delivery • Secure Payments • 24/7 Support</div>
+        </div>
+    </div>
+</section>
+
+<!-- Categories Preview -->
+<section class="categories-preview">
+    <h2 class="section-title">Shop by Categories</h2>
+    <div id="categories-grid" class="category-grid">
+        <!-- Loaded via JavaScript API -->
+        <div class="loader-container"><div class="loader"></div></div>
+    </div>
+</section>
+
+<!-- Featured Products Preview -->
+<section style="margin: 5rem 0;">
+    <h2 class="section-title">Trending Products</h2>
+    <div id="featured-products-grid" class="products-grid">
+        <!-- Loaded via JavaScript API -->
+        <div class="loader-container"><div class="loader"></div></div>
+    </div>
+    <div style="text-align:center; margin-top:3rem;">
+        <a href="/products" class="btn btn-secondary">Browse All Products ➔</a>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    // 1. Fetch and render categories
+    const catRes = await API.get('/api/categories');
+    const catGrid = document.getElementById('categories-grid');
+    if (!catRes.error && catGrid) {
+        catGrid.innerHTML = catRes.data.map(cat => `
+            <div class="category-card glass-panel" onclick="window.location.href='/products?category=${cat.slug}'">
+                <h3>${cat.name}</h3>
+                <p>${cat.description}</p>
+            </div>
+        `).join('');
+    } else if (catGrid) {
+        catGrid.innerHTML = `<p style="text-align:center; width:100%; color:var(--danger)">Failed to load categories.</p>`;
+    }
+    
+    // 2. Fetch and render featured products (first 4 items)
+    const prodRes = await API.get('/api/products');
+    const prodGrid = document.getElementById('featured-products-grid');
+    if (!prodRes.error && prodGrid) {
+        const featured = prodRes.data.slice(0, 4);
+        if (featured.length === 0) {
+            prodGrid.innerHTML = `<p style="text-align:center; width:100%;">No products available yet.</p>`;
+            return;
+        }
+        prodGrid.innerHTML = featured.map(prod => `
+            <div class="product-card glass-panel">
+                <img src="${prod.image_url}" alt="${prod.name}" class="product-card-image" onerror="this.src='/static/uploads/placeholder.webp'">
+                <div class="product-card-body">
+                    <span class="product-card-category">${prod.category_name}</span>
+                    <h3 class="product-card-title">${prod.name}</h3>
+                    <div class="product-card-stock">
+                        ${prod.stock > 0 ? 
+                            (prod.stock <= 5 ? '<span class="stock-badge stock-low">Low Stock</span>' : '<span class="stock-badge stock-in">In Stock</span>') 
+                            : '<span class="stock-badge stock-out">Out of Stock</span>'}
+                    </div>
+                    <div class="product-card-footer">
+                        <span class="product-card-price">${App.formatCurrency(prod.price)}</span>
+                        <a href="/products/${prod.id}" class="btn btn-secondary" style="padding:0.4rem 0.8rem; font-size:0.85rem;">View Details</a>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    } else if (prodGrid) {
+        prodGrid.innerHTML = `<p style="text-align:center; width:100%; color:var(--danger)">Failed to load featured products.</p>`;
+    }
+});
+</script>
+{% endblock %}

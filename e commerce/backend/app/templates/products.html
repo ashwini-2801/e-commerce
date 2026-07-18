@@ -1,0 +1,218 @@
+{% extends 'base.html' %}
+
+{% block title %}Shop Products - AuraShop{% endblock %}
+
+{% block content %}
+<div class="catalog-layout">
+    <!-- Sidebar Filter Options -->
+    <aside class="catalog-sidebar glass-panel">
+        <div class="filter-section">
+            <h4>Categories</h4>
+            <div id="category-filter-list">
+                <!-- Loaded via JS -->
+                <div style="font-size:0.9rem; color:var(--text-muted);">Loading categories...</div>
+            </div>
+        </div>
+        
+        <div class="filter-section">
+            <h4>Sort Options</h4>
+            <div class="filter-option">
+                <input type="radio" name="sort-group" id="sort-default" value="" checked>
+                <label for="sort-default">Default</label>
+            </div>
+            <div class="filter-option">
+                <input type="radio" name="sort-group" id="sort-price-asc" value="price_asc">
+                <label for="sort-price-asc">Price: Low to High</label>
+            </div>
+            <div class="filter-option">
+                <input type="radio" name="sort-group" id="sort-price-desc" value="price_desc">
+                <label for="sort-price-desc">Price: High to Low</label>
+            </div>
+            <div class="filter-option">
+                <input type="radio" name="sort-group" id="sort-newest" value="newest">
+                <label for="sort-newest">Newest Products</label>
+            </div>
+        </div>
+        
+        <button id="clear-filters-btn" class="btn btn-secondary" style="width:100%; font-size:0.9rem; padding:0.5rem 1rem;">
+            Clear Filters
+        </button>
+    </aside>
+    
+    <!-- Main Catalog View -->
+    <div class="catalog-main">
+        <div class="catalog-toolbar glass-panel">
+            <!-- Search bar -->
+            <div class="search-container">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="search-input" class="form-control search-input" placeholder="Search products by name or details...">
+            </div>
+            
+            <!-- Mobile Category/Sort Controls -->
+            <div class="sort-container">
+                <span style="font-weight:600;">Display:</span>
+                <select id="mobile-sort-select" class="form-control" style="width: 160px; padding: 0.4rem 2rem 0.4rem 1rem; font-size: 0.9rem;">
+                    <option value="">Default Sort</option>
+                    <option value="price_asc">Price: Low-High</option>
+                    <option value="price_desc">Price: High-Low</option>
+                    <option value="newest">Newest</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- Products Grid -->
+        <div id="products-grid-container" class="products-grid">
+            <div class="loader-container"><div class="loader"></div></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentCategory = '';
+let currentSort = '';
+let currentSearch = '';
+
+document.addEventListener('DOMContentLoaded', async () => {
+    // Check url params for category/search
+    currentCategory = App.getQueryParam('category') || '';
+    currentSearch = App.getQueryParam('q') || '';
+    if (currentSearch) {
+        document.getElementById('search-input').value = currentSearch;
+    }
+    
+    // 1. Fetch categories for filters
+    await loadCategoriesFilter();
+    
+    // 2. Fetch and render products catalog
+    await fetchProducts();
+    
+    // 3. Register Event Listeners
+    setupListeners();
+});
+
+async function loadCategoriesFilter() {
+    const res = await API.get('/api/categories');
+    const container = document.getElementById('category-filter-list');
+    
+    if (!res.error && container) {
+        let html = `
+            <div class="filter-option">
+                <input type="radio" name="cat-group" id="cat-all" value="" ${currentCategory === '' ? 'checked' : ''}>
+                <label for="cat-all">All Categories</label>
+            </div>
+        `;
+        
+        res.data.forEach(cat => {
+            const isChecked = currentCategory === cat.slug || currentCategory === String(cat.id);
+            html += `
+                <div class="filter-option">
+                    <input type="radio" name="cat-group" id="cat-${cat.id}" value="${cat.id}" ${isChecked ? 'checked' : ''}>
+                    <label for="cat-${cat.id}">${cat.name}</label>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+        
+        // Attach change listeners to categories radios
+        document.querySelectorAll('input[name="cat-group"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                currentCategory = e.target.value;
+                fetchProducts();
+            });
+        });
+    }
+}
+
+async function fetchProducts() {
+    const grid = document.getElementById('products-grid-container');
+    grid.innerHTML = '<div class="loader-container"><div class="loader"></div></div>';
+    
+    // Build query URL
+    let url = `/api/products?q=${encodeURIComponent(currentSearch)}`;
+    if (currentCategory) url += `&category=${currentCategory}`;
+    if (currentSort) url += `&sort=${currentSort}`;
+    
+    const res = await API.get(url);
+    if (res.error) {
+        grid.innerHTML = `<p style="text-align:center; color:var(--danger); grid-column:1/-1;">Error loading products: ${res.error}</p>`;
+        return;
+    }
+    
+    const products = res.data;
+    if (products.length === 0) {
+        grid.innerHTML = `<p style="text-align:center; color:var(--text-secondary); grid-column:1/-1; padding:3rem;">No products match the selected criteria.</p>`;
+        return;
+    }
+    
+    grid.innerHTML = products.map(prod => `
+        <div class="product-card glass-panel">
+            <img src="${prod.image_url}" alt="${prod.name}" class="product-card-image" onerror="this.src='/static/uploads/placeholder.webp'">
+            <div class="product-card-body">
+                <span class="product-card-category">${prod.category_name}</span>
+                <h3 class="product-card-title">${prod.name}</h3>
+                <div class="product-card-stock">
+                    ${prod.stock > 0 ? 
+                        (prod.stock <= 5 ? '<span class="stock-badge stock-low">Low Stock (${prod.stock})</span>' : '<span class="stock-badge stock-in">In Stock</span>') 
+                        : '<span class="stock-badge stock-out">Out of Stock</span>'}
+                </div>
+                <div class="product-card-footer">
+                    <span class="product-card-price">${App.formatCurrency(prod.price)}</span>
+                    <a href="/products/${prod.id}" class="btn btn-secondary" style="padding:0.4rem 0.8rem; font-size:0.85rem;">View Details</a>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function setupListeners() {
+    // Search listener (debounced or search button, let's use input change)
+    let searchTimeout;
+    document.getElementById('search-input').addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            currentSearch = e.target.value.trim();
+            fetchProducts();
+        }, 400);
+    });
+    
+    // Sidebar sort listener
+    document.querySelectorAll('input[name="sort-group"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            currentSort = e.target.value;
+            // Sync mobile sort dropdown
+            document.getElementById('mobile-sort-select').value = currentSort;
+            fetchProducts();
+        });
+    });
+    
+    // Mobile sort select listener
+    document.getElementById('mobile-sort-select').addEventListener('change', (e) => {
+        currentSort = e.target.value;
+        // Sync sidebar radio
+        const targetRadio = document.querySelector(`input[name="sort-group"][value="${currentSort}"]`);
+        if (targetRadio) targetRadio.checked = true;
+        fetchProducts();
+    });
+    
+    // Clear filters button
+    document.getElementById('clear-filters-btn').addEventListener('click', () => {
+        currentCategory = '';
+        currentSort = '';
+        currentSearch = '';
+        
+        document.getElementById('search-input').value = '';
+        document.getElementById('mobile-sort-select').value = '';
+        
+        const catAllRadio = document.getElementById('cat-all');
+        if (catAllRadio) catAllRadio.checked = true;
+        
+        const sortDefaultRadio = document.getElementById('sort-default');
+        if (sortDefaultRadio) sortDefaultRadio.checked = true;
+        
+        fetchProducts();
+    });
+}
+</script>
+{% endblock %}
